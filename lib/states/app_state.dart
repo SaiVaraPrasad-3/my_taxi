@@ -8,6 +8,7 @@ import 'package:my_taxi/requests/google_maps_requests.dart';
 class AppState with ChangeNotifier{
   static LatLng _initialPosition;
   LatLng _lastPosition = _initialPosition;
+  bool locationServiceActive = true;
   final Set<Marker> _markers = {};
   //the lines that draw from on point to another
   final Set<Polyline> _polyLines = {};
@@ -139,6 +140,15 @@ class AppState with ChangeNotifier{
   void onCreated(GoogleMapController controller) {
       _mapController = controller;
       notifyListeners();
+  }
+  //  LOADING INITIAL POSITION
+  void _loadingInitialPosition()async{
+    await Future.delayed(Duration(seconds: 5)).then((v) {
+      if(_initialPosition == null){
+        locationServiceActive = false;
+        notifyListeners();
+      }
+    });
   }
 
 }

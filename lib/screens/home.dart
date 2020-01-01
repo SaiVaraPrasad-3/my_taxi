@@ -46,9 +46,26 @@ class _MapState extends State<Map> {
     return SafeArea(
       child: appState.initialPosition == null
           ? Container(
-               alignment: Alignment.center,
-               child: Center(
-                  child: SpinKitFadingCircle(
+        //        alignment: Alignment.center,
+        //        child: Center(
+        //           child: SpinKitFadingCircle(
+        //            itemBuilder: (BuildContext context, int index) {
+        //               return DecoratedBox(
+        //               decoration: BoxDecoration(
+        //               color: index.isEven ? Colors.yellow : Colors.red,
+        //               ),
+        //               );
+        //               },
+        //               ),
+        //   )
+        // ,
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: <Widget>[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: <Widget>[
+                SpinKitFadingCircle(
                    itemBuilder: (BuildContext context, int index) {
                       return DecoratedBox(
                       decoration: BoxDecoration(
@@ -57,8 +74,15 @@ class _MapState extends State<Map> {
                       );
                       },
                       ),
-          )
-        ,
+              ],
+            ),
+            SizedBox(height: 10,),
+                  Visibility(
+                    visible: appState.locationServiceActive == false,
+                    child: Text("Please enable device location services!", 
+                    style: TextStyle(color: Colors.grey, fontSize: 18),),
+                  )]
+          ,),
       ) : Stack(
         children: <Widget>[
           GoogleMap(initialCameraPosition:
