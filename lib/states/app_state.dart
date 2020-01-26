@@ -68,17 +68,23 @@ class AppState with ChangeNotifier{
 /// ! TO GET THE USERS LOCATION
 
   void _getUserLocation() async{
+    List<Placemark> placemark;
     Position position = await Geolocator()
         .getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    List<Placemark> placemark = await Geolocator()
-        .placemarkFromCoordinates(position.latitude, position.longitude);
+    try{
+      placemark = await Geolocator()
+          .placemarkFromCoordinates(position.latitude, position.longitude);
+    } catch(e){ debugPrint("getUserLocation Method exception");}
+    ///getting placemark without exception
+//    List<Placemark> placemark = await Geolocator()
+//        .placemarkFromCoordinates(position.latitude, position.longitude);
     _initialPosition = LatLng(position.latitude, position.longitude);
     print("initial position is : ${_initialPosition.toString()}");
     locationController.text = placemark[0].name;
     notifyListeners();
   }
 
-  ///! to Create route
+  /// ! to Create route
   void createRoute(String encodedPoly){
       _polyLines.add(Polyline(polylineId: PolylineId(_lastPosition.toString()),
         width: 10,
@@ -465,7 +471,7 @@ class AppState with ChangeNotifier{
                      IconButton(
                        icon: Icon(Icons.message),
                        //chat with driver
-                       onPressed: ()=>Navigator.pop(context),
+                       onPressed: ()=>Navigator.of(context).pop(),
                      ),
                      IconButton(
                        icon: Icon(Icons.call),
@@ -535,7 +541,7 @@ class AppState with ChangeNotifier{
 
  /// Make http request to the server and fetch prices
   Future<dynamic> _makeGetRequestForPrices() async {
-    http.Response response = await http.get("${_localhost()}/location/price");
+    http.Response response = await http.get("${_localhost()}/taxi/location/price");
     return json.decode(response.body);
   }
 
