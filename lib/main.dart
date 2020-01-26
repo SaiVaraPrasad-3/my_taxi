@@ -23,15 +23,15 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: "my taxi",
-      routes: <String, WidgetBuilder>{
-        '/homepage': (BuildContext context) => MyHomePage(title: "My Taxi"),
-        // '/loginpage': (BuildContext context)=> MyAppPage(title: "Login"),
-      },
+      // routes: <String, WidgetBuilder>{
+      //   '/homepage': (BuildContext context) => MyHomePage(),
+      //   '/loginpage': (BuildContext context)=> MyApp(),
+      // },
       theme: ThemeData(
         primarySwatch: Colors.yellow,
       ),
       home: MyHomePage(title: "My Taxi"),
-        // home: MyAppPage(title: "Login"),
+      // home: MyAppPage(title: "Sign Up"),
     );
   }
 }

@@ -1,8 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_webservice/places.dart';
 import 'package:my_taxi/states/app_state.dart';
 import 'package:provider/provider.dart';
+import '../utils/credentials.dart';
+import './drawer/drawer.dart';
+import 'package:flutter_icons/flutter_icons.dart';
+
+
+
 class MyHomePage extends StatefulWidget {
   MyHomePage({Key key, this.title}): super(key: key);
 
@@ -14,6 +21,8 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
 
+
+
   // to change icon of drawer
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
@@ -22,7 +31,28 @@ class _MyHomePageState extends State<MyHomePage> {
     return Scaffold(
       body: Map(),
       key: _scaffoldKey,
+     
   /// add drawer here
+      floatingActionButton: Stack(
+        children: <Widget>[
+         Positioned(
+           top: 65,
+           left: 30,
+           child: Container(
+             height: 45.0,
+             width: 45.0,
+             child: FittedBox(
+               child: FloatingActionButton(
+                 child: Icon(Icons.menu),
+                 backgroundColor: Colors.grey[200],
+                 onPressed: ()=>_scaffoldKey.currentState.openDrawer(),
+                 ),
+             ),
+           )
+          ),
+      ], 
+      ),
+      drawer: DrawerBuilder(),
     );
   }
 }
@@ -31,22 +61,18 @@ class Map extends StatefulWidget {
   @override
   _MapState createState() => _MapState();
 }
+
 class _MapState extends State<Map> {
- @override
- void initState() {
-   // TODO: implement initState
-   super.initState();
-  //  _getUserLocation();
- }
+  GoogleMapsPlaces _places = GoogleMapsPlaces(apiKey: apiKey);
 
 
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
+
     return SafeArea(
       child: appState.initialPosition == null
-          ? Container(
-        //        alignment: Alignment.center,
+          ? Container(//        alignment: Alignment.center,
         //        child: Center(
         //           child: SpinKitFadingCircle(
         //            itemBuilder: (BuildContext context, int index) {
@@ -70,6 +96,7 @@ class _MapState extends State<Map> {
                       return DecoratedBox(
                       decoration: BoxDecoration(
                       color: index.isEven ? Colors.yellow : Colors.red,
+//                      color: Colors.yellow
                       ),
                       );
                       },
@@ -79,23 +106,39 @@ class _MapState extends State<Map> {
             SizedBox(height: 10,),
                   Visibility(
                     visible: appState.locationServiceActive == false,
-                    child: Text("Please enable device location services!", 
+                    child: Text("Please enable device location services!",
                     style: TextStyle(color: Colors.grey, fontSize: 18),),
                   )]
           ,),
       ) : Stack(
         children: <Widget>[
           GoogleMap(initialCameraPosition:
-            CameraPosition(target: appState.initialPosition,zoom: 8.0),
+            CameraPosition(target: appState.initialPosition,zoom: 18.0),
             onMapCreated: appState.onCreated,
             myLocationEnabled: true,
-            mapType: MapType.normal,
+            mapType: appState.currentMapType,
             compassEnabled: true,
             markers: appState.markers,
             onCameraMove: appState.onCameraMove,
-            polylines: appState.polylines,
+            polylines: appState.polyLines,
           ),
 
+      
+          //this button will change modes of map
+          Positioned(
+            right: 10.0,
+            bottom: 170.0,
+              child: Container(
+                height: 45,
+                width: 45,
+                child: FloatingActionButton(
+                  child: Icon(Icons.map),
+                  onPressed: appState.onMapTypeButtonPressed,
+                  backgroundColor:
+                   appState.currentMapType == MapType.normal ? Colors.green[100] : Colors.white
+                ),
+              ),
+            ),
 
           //Pickup location search part
           //Destination position search
@@ -138,9 +181,6 @@ class _MapState extends State<Map> {
               ),
             ),
           ),
-
-
-
           Positioned(
             bottom: 50.0,//105.0,
             right: 15.0,
@@ -160,12 +200,27 @@ class _MapState extends State<Map> {
                 ],
               ),
               child: TextField(
+                //places autocomplete
+//                onTap: () async{
+//                  Prediction p = await PlacesAutocomplete.show(context: context, apiKey: apiKey,
+//                  language: "en", components: [
+//                    Component(Component.country, "in")
+//                      ]
+//                  );
+//                  if(p != null) return;
+//                  setState(() {
+//                    appState.destinationController.text = p.description;
+//
+//                  });
+//                },
+                 
                 cursorColor: Colors.blueGrey,
                 controller: appState.destinationController,
                 textInputAction: TextInputAction.go,
-                onSubmitted: (value) {
-                  appState.sendRequest(value);
-                  },
+                onSubmitted: (value) async{
+                  appState.sendRequest(value, context);
+//                  appState.confirmBooking(context);
+                },
                 decoration: InputDecoration(
                   icon: Container(
                     margin: EdgeInsets.only(left: 20, top: 5),
