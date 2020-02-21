@@ -2,23 +2,31 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:google_maps_webservice/places.dart';
 import 'package:my_taxi/requests/google_maps_requests.dart';
+import 'package:my_taxi/utils/core.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/credentials.dart';
 import 'package:http/http.dart' as http;
 import '../utils/core.dart' as utils;
 import 'package:flutter_icons/flutter_icons.dart';
+import 'db_data.dart';
+
 
 class AppState with ChangeNotifier{
+
+  DatabaseData dbData = DatabaseData();
 
 
   static LatLng _initialPosition;
   LatLng _lastPosition = _initialPosition;
   bool locationServiceActive = true;
   final Set<Marker> _markers = {};
-  //the lines that draw from on point to another
+  //the lines that draw from one point to another
   final Set<Polyline> _polyLines = {};
   GoogleMapController _mapController;
   GoogleMapsServices _googleMapsServices = GoogleMapsServices();
@@ -55,7 +63,13 @@ class AppState with ChangeNotifier{
   var driverLastName = "";
   var taxiNumberPlate = "";
   var driverContactNumber;
+  var selectedTaxiPrice;
 
+  /*
+  *real time location update on google map,
+  *  the link:
+  * https://medium.com/flutter-community/implement-real-time-location-updates-on-google-maps-in-flutter-235c8a09173e
+  * */
 
 
   AppState(){
@@ -65,27 +79,43 @@ class AppState with ChangeNotifier{
 
 
 
-/// ! TO GET THE USERS LOCATION
+/// ! To get location auto complete
+    Future<void> getLocationAutoComplete(BuildContext context) async {
+    Prediction p = await PlacesAutocomplete.show(
+    context: context,
 
+    apiKey: "AIzaSyDAtArPLH5n0-F1cgXnhomLZXA7Rbes0AY",
+    mode: Mode.overlay, // Mode.fullscreen
+    language: "en",
+    // location: ,
+
+    components: [new Component(Component.country, "eg")]);
+    destinationController.text = p.description;
+    notifyListeners();
+    }
+
+
+
+
+/// ! TO GET THE USERS LOCATION
   void _getUserLocation() async{
-    List<Placemark> placemark;
     Position position = await Geolocator()
-        .getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
-    try{
-      placemark = await Geolocator()
-          .placemarkFromCoordinates(position.latitude, position.longitude);
-    } catch(e){ debugPrint("getUserLocation Method exception");}
-    ///getting placemark without exception
-//    List<Placemark> placemark = await Geolocator()
-//        .placemarkFromCoordinates(position.latitude, position.longitude);
+        .getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
+
+    List<Placemark> placemark = await Geolocator()
+        .placemarkFromCoordinates(position.latitude, position.longitude);
     _initialPosition = LatLng(position.latitude, position.longitude);
+
     print("initial position is : ${_initialPosition.toString()}");
+//    print(placemark.toString());
     locationController.text = placemark[0].name;
     notifyListeners();
   }
 
   /// ! to Create route
   void createRoute(String encodedPoly){
+   /// remove all previous routes
+      _polyLines.clear();
       _polyLines.add(Polyline(polylineId: PolylineId(_lastPosition.toString()),
         width: 10,
         points: _convertToLanLng(_decodePoly(encodedPoly)),
@@ -94,14 +124,25 @@ class AppState with ChangeNotifier{
   }
 
   /// Add a marker on the map for destination address
-  void _addMarker(LatLng location, String address) {
+  void _addMarker(LatLng location, String address, context) {
+    ///clear all previous markers
+      _markers.clear();
       _markers.add(Marker(markerId: MarkerId(_lastPosition.toString()),
+          draggable: true,
           position: location,
           infoWindow: InfoWindow(
               title: address,
               snippet: "go here"
           ),
-          icon: BitmapDescriptor.defaultMarker
+
+          icon: BitmapDescriptor.defaultMarker,
+          onDragEnd: ((value) {
+            print(value.latitude);
+            print(value.longitude);
+            sendRequest("NULL", context, value);
+          })
+
+
       ));
       notifyListeners();
   }
@@ -159,12 +200,24 @@ class AppState with ChangeNotifier{
   }
 
   ///Send requests
-  void sendRequest(String intendedLocation, context) async{
-    List<Placemark> placemark = await Geolocator().placemarkFromAddress(intendedLocation);
-    double latitude = placemark[0].position.latitude;
-    double longitude = placemark[0].position.longitude;
+  void sendRequest(String intendedLocation, context, LatLng markerLatLng ) async {
+    double latitude;
+    double longitude;
+
+    if(intendedLocation == "NULL"){
+      latitude = markerLatLng.latitude;
+      longitude = markerLatLng.longitude;
+    }
+    else {
+      List<Placemark> placemark = await Geolocator ( ).placemarkFromAddress (
+          intendedLocation );
+      latitude = placemark[0].position.latitude;
+      longitude = placemark[0].position.longitude;
+    }
+
+
     LatLng destination = LatLng(latitude, longitude);
-    _addMarker(destination, intendedLocation);
+    _addMarker(destination, intendedLocation, context);
     String route = await _googleMapsServices.getRouteCoordinates(_initialPosition, destination);
 
 
@@ -178,10 +231,10 @@ class AppState with ChangeNotifier{
 
 
     ///   get prices here
-    locationPrice = await _makeGetRequestForPrices();
+    locationPrice = await dbData.makeGetRequestForPrices();
     ///Local price (Goa rate) with rounding off the values
     price = (locationPrice[0]['price_per_km'] * distance).toStringAsFixed(0);
-
+    selectedTaxiPrice = price;
 
     ///   get list of available cars and their drivers
     availableCarDriverDetails = await _makeGetRequestForTaxiAndDrivers();
@@ -214,9 +267,22 @@ class AppState with ChangeNotifier{
     print("Distance inside sendRequest method $distance");
     _confirmBooking(context);
 
+
 //      //Send initial and distination poisition from here to driver app (Send the rout to the driver app)
     //write route inside the map, actually add polyLines on the map
     createRoute(route);
+
+    /// Zoom camera position to the destination address
+    mapController.animateCamera(
+      CameraUpdate.newCameraPosition(
+        CameraPosition(
+          target: destination,
+          tilt: 50.0,
+          bearing: 20.0,
+          zoom: 16.0,
+        ),
+      ),
+    );
 //    _settingModalBottomSheet(context);
     notifyListeners();
   }
@@ -234,6 +300,7 @@ class AppState with ChangeNotifier{
       notifyListeners();
   }
   //  LOADING INITIAL POSITION
+
   void _loadingInitialPosition()async{
     await Future.delayed(Duration(seconds: 5)).then((v) {
       if(_initialPosition == null){
@@ -291,6 +358,7 @@ class AppState with ChangeNotifier{
       return json.decode(response.body);
    }
 
+/*
 //This method for future use 
 //bottom sheet will pop up to change map modes
   void _settingModalBottomSheet(context){
@@ -354,7 +422,7 @@ class AppState with ChangeNotifier{
     );
     notifyListeners();
 }
-
+*/
 
 //Bottom sheet to confirm booking, select car type and use promo codes
  void _confirmBooking(BuildContext context){
@@ -408,7 +476,7 @@ class AppState with ChangeNotifier{
                      VerticalDivider(),
                      Column( children: <Widget>[
                        Text("Price", style: TextStyle(color: Colors.grey),),
-                       Text("$price Rs", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("$selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                    ],
@@ -456,11 +524,17 @@ class AppState with ChangeNotifier{
                    children: <Widget>[
                     Expanded(
                       child: ListTile(
-                        leading: CircleAvatar(
-                          ///url in this image should be taken from the database
-                          ///for now we are using simple image
-                          child: Image.network(utils.profileTestImage),
-                        ),
+                        leading: new Container(
+                            width: 100.0,
+                            height: 100.0,
+                            decoration: new BoxDecoration(
+                                shape: BoxShape.circle,
+                                image: new DecorationImage(
+                                    fit: BoxFit.fill,
+                                    image: new NetworkImage(
+                                        utils.profileTestImage)
+                                )
+                            )),
 //                        title: Text("Driver name here"),
                         title: Text("$driverName $driverLastName"),
                         subtitle: Text("$carType\n$taxiNumberPlate"),
@@ -497,7 +571,7 @@ class AppState with ChangeNotifier{
                      VerticalDivider(),
                      Column( children: <Widget>[
                        Text("Price", style: TextStyle(color: Colors.grey),),
-                       Text("$price Rs", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("$selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                    ],
@@ -534,65 +608,73 @@ class AppState with ChangeNotifier{
 
   /// Make http request to get list of available cars and their drivers
   Future<dynamic> _makeGetRequestForTaxiAndDrivers() async {
-    http.Response response = await http.get("${_localhost()}/taxi/details");
+    http.Response response = await http.get("${localhost()}/taxi/details");
     return json.decode(response.body);
   }
 
 
- /// Make http request to the server and fetch prices
-  Future<dynamic> _makeGetRequestForPrices() async {
-    http.Response response = await http.get("${_localhost()}/taxi/location/price");
-    return json.decode(response.body);
-  }
+
 
   /// Make http request to get list of cars available;
-
-  String _localhost() {
-    if (Platform.isAndroid)
-      return 'http://10.0.2.2:7000';
-    else // for iOS simulator
-      return 'http://localhost:7000';
-  }
-
-
-
-
   void _displayAvailableTaxis(BuildContext context) {
-    var carURL;
+    var carPictureURL;
+    selectedTaxiPrice = int.parse(price);
 
     showModalBottomSheet(
+      backgroundColor: Colors.yellow.shade100,
       context: context,
       builder: (BuildContext bc)
     {
       return ListView.builder(
           itemCount: availableCarDriverDetails.length,
           itemBuilder: (BuildContext context, int index){
-            if(availableCarDriverDetails[index]["CarType"] == "flash_taxi")
-              carURL = utils.flashTypeUrl;
-            else if (availableCarDriverDetails[index]["CarType"] == "van")
-              carURL = utils.vanTypeUrl;
-            else
-              carURL = utils.sedanTypeUrl;
-            return Card(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(15.0),
-              ),
-              color: Colors.blueGrey,
-              elevation: 10,
-              child: ListTile(
-                leading: CircleAvatar(
-                  child: Image.network(carURL),
+            if(availableCarDriverDetails[index]["CarType"] == "flash") {
+              carPictureURL = utils.flashTypeUrl;
+              selectedTaxiPrice = int.parse(price) + 50;
+            }
+            else if (availableCarDriverDetails[index]["CarType"] == "van"){
+              carPictureURL = utils.vanTypeUrl;
+              selectedTaxiPrice = int.parse(price) + 100 ;
+            }
+            else{
+
+                   carPictureURL = utils.sedanTypeUrl;
+                   selectedTaxiPrice = int.parse(price);
+            }
+            return Container(
+              height: 80,
+              child: Card(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15.0),
                 ),
-                trailing: Text(availableCarDriverDetails[index]["CarType"]),
-                onTap: (){
-                  selectedTaxiCompleteDetails = availableCarDriverDetails[index];
-                  carType = selectedTaxiCompleteDetails["CarType"];
-                  driverName = selectedTaxiCompleteDetails["DriverName"];
-                  driverLastName = selectedTaxiCompleteDetails["DriverLastName"];
-                  taxiNumberPlate = selectedTaxiCompleteDetails["NumberPlate"];
-                  driverContactNumber = selectedTaxiCompleteDetails["PhoneNumber"];
-                  Navigator.of(context).pop();
-                },
+                color: Colors.white,
+                elevation: 10,
+                child: ListTile(
+                  leading:
+                  new Container(
+                      width: 100.0,
+                      height: 100.0,
+                      decoration: new BoxDecoration(
+                          shape: BoxShape.circle,
+                          image: new DecorationImage(
+                              fit: BoxFit.fill,
+                              image: new NetworkImage(
+                                  carPictureURL)
+                          )
+                      )),
+                  trailing: Text("₹ ${selectedTaxiPrice.toString()}", style: TextStyle(fontWeight: FontWeight.bold,fontSize: 20.0),),
+                  title: Text(availableCarDriverDetails[index]["CarType"],
+                    style: TextStyle(fontWeight: FontWeight.bold,fontSize: 22.0,color: Colors.black),),
+                  onTap: (){
+                    selectedTaxiCompleteDetails = availableCarDriverDetails[index];
+                    carType = selectedTaxiCompleteDetails["CarType"];
+                    driverName = selectedTaxiCompleteDetails["DriverName"];
+                    driverLastName = selectedTaxiCompleteDetails["DriverLastName"];
+                    taxiNumberPlate = selectedTaxiCompleteDetails["NumberPlate"];
+                    driverContactNumber = selectedTaxiCompleteDetails["PhoneNumber"];
+                    Navigator.of(context).pop();
+                  },
+                ),
               ),
             );
           }
@@ -616,6 +698,7 @@ class AppState with ChangeNotifier{
       }
     }
   }
+
 
 
 

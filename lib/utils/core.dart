@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 
@@ -11,3 +13,11 @@ const flashTypeUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQDfH
 
 
 const profileTestImage = "https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcQKB2Yv9q0ZjdLY8gskjuT0WAy7adyQUuFub6vkP1vpR-DQ2KXb";
+
+
+String localhost() {
+  if (Platform.isAndroid)
+    return 'http://10.0.2.2:7000';
+  else // for iOS simulator
+    return 'http://localhost:7000';
+}

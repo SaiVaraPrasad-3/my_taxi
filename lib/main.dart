@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:my_taxi/authentication/login.dart';
+import 'package:my_taxi/authentication/signup.dart';
 import 'package:my_taxi/screens/auth_screen.dart';
+import 'package:my_taxi/screens/ride_history.dart';
 import 'package:my_taxi/states/app_state.dart';
 import 'package:provider/provider.dart';
 import './screens/home.dart';
@@ -20,18 +23,20 @@ class MyApp extends StatelessWidget {
   //This widget is the root of the application
   @override
   Widget build(BuildContext context) {
+    var title = "My Taxi";
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: "my taxi",
-      // routes: <String, WidgetBuilder>{
-      //   '/homepage': (BuildContext context) => MyHomePage(),
-      //   '/loginpage': (BuildContext context)=> MyApp(),
-      // },
+      title: title,
+       routes: <String, WidgetBuilder>{
+         '/homepage': (BuildContext context) => MyHomePage(title: title,),
+         '/login': (BuildContext context) => LoginPage(),
+         '/signup': (BuildContext context) => SignUpPage(),
+       },
       theme: ThemeData(
         primarySwatch: Colors.yellow,
       ),
-      home: MyHomePage(title: "My Taxi"),
-      // home: MyAppPage(title: "Sign Up"),
+//      home: LoginPage(),
+       home: MyHomePage(title: title),
     );
   }
 }
