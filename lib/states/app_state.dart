@@ -23,6 +23,7 @@ class AppState with ChangeNotifier{
 
 
   static LatLng _initialPosition;
+  static LatLng destination;
   LatLng _lastPosition = _initialPosition;
   bool locationServiceActive = true;
   final Set<Marker> _markers = {};
@@ -43,6 +44,7 @@ class AppState with ChangeNotifier{
   Set<Polyline> get polyLines => _polyLines;
   get confirmBooking => _confirmBooking;
   get onMapTypeButtonPressed => _onMapTypeButtonPressed;
+  get getUserLocation => _getUserLocation;
   Map googleDistanceMatrixData;
 
   var distance;
@@ -73,7 +75,9 @@ class AppState with ChangeNotifier{
 
 
   AppState(){
-    _getUserLocation();
+    ///he in loading of app we just pass empty values
+    /// because in loading stage the the parameters of _getUserLocation won't be needed
+    _getUserLocation("From AppState()",'');
     _loadingInitialPosition();
   }
 
@@ -98,18 +102,50 @@ class AppState with ChangeNotifier{
 
 
 /// ! TO GET THE USERS LOCATION
-  void _getUserLocation() async{
-    Position position = await Geolocator()
-        .getCurrentPosition(desiredAccuracy: LocationAccuracy.best);
+  void _getUserLocation(String pickupLocationSearched, context) async{
+    List<Placemark> placemark;
+    String error;
+    /// From AppState means to decide the behavior of the getUserLocation method based on user current location or searched pickup location
+    if(pickupLocationSearched != "From AppState()"){
+      try {
+        List<Placemark> placemark = await Geolocator ( ).placemarkFromAddress ( pickupLocationSearched );
+        double latitude = placemark[0].position.latitude;
+        double longitude = placemark[0].position.longitude;
+        _initialPosition = LatLng(latitude, longitude);
+        _addPickupMarker(_initialPosition, pickupLocationSearched, context);
 
-    List<Placemark> placemark = await Geolocator()
-        .placemarkFromCoordinates(position.latitude, position.longitude);
-    _initialPosition = LatLng(position.latitude, position.longitude);
+        /// if the user has not searched destination the we won't send request if destination is searched then request will be sent
+        /// user will have to search for destination else if already searched then
+        /// based on new initial position and previous searched destination we send request
+        if(destination != null)
+          /// 0.0 LatLng because when we call sendRequest method from here then LatLng won't we needed only we change initial value
+          /// and send request to the already searched destination
+         sendRequest("From _getUserLocation", context, _initialPosition,LatLng(0.0,0.0));
+        error = null;
+      }
+      on Exception catch (e) {
+        if(e.toString() == 'PERMISSION_DENIED') {
+          error = 'Permission denied';
+        } else if (e.toString() == 'PERMISSION_DENIED_NEVER_ASK') {
+          error = 'Permission denied - please ask user to enable it from the app settings';
+        }
+        print(error);
+      }
 
+
+    }else {
+      Position position = await Geolocator ( )
+          .getCurrentPosition ( desiredAccuracy: LocationAccuracy.best );
+
+      placemark = await Geolocator ( )
+          .placemarkFromCoordinates ( position.latitude, position.longitude );
+      _initialPosition = LatLng ( position.latitude, position.longitude );
+      _addPickupMarker(_initialPosition, locationController.text.toString(),context);
+      locationController.text = placemark[0].name;
+      notifyListeners();
+    }
     print("initial position is : ${_initialPosition.toString()}");
 //    print(placemark.toString());
-    locationController.text = placemark[0].name;
-    notifyListeners();
   }
 
   /// ! to Create route
@@ -123,11 +159,53 @@ class AppState with ChangeNotifier{
       notifyListeners();
   }
 
+
+
+  /// Add a marker on the map for pick up address
+  void _addPickupMarker(LatLng location, String address, context) {
+    ///clear all previous markers
+    _markers.remove(MarkerId("Pick Up"));
+    _markers.add(Marker(markerId: MarkerId("Pick Up"),
+        draggable: true,
+        position: location,
+        infoWindow: InfoWindow(
+            title: address,
+            snippet: "Pick Up"
+        ),
+
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen),
+//          icon: BitmapDescriptor.fromAsset('images/test2.png',),
+        ///          to change opacity of the marker
+        alpha: .9,
+        onDragEnd: ((value) {
+          /// if user drags marker without searching destination the on drag we only update the pickup location
+          _initialPosition = value;
+          /// if user already searched the destination position the we request new route on pickup marker dragged
+          if(destination != null){
+            sendRequest("From Pickup Marker", context, _initialPosition, destination);
+          }
+          
+        })
+    ));
+    notifyListeners();
+  }
+
+
+
+
+
+
+
+
+
+
+
+
   /// Add a marker on the map for destination address
   void _addMarker(LatLng location, String address, context) {
     ///clear all previous markers
-      _markers.clear();
-      _markers.add(Marker(markerId: MarkerId(_lastPosition.toString()),
+      _markers.remove(MarkerId("Destination"));
+      _markers.add(Marker(markerId: MarkerId("Destination"),
           draggable: true,
           position: location,
           infoWindow: InfoWindow(
@@ -135,11 +213,12 @@ class AppState with ChangeNotifier{
               snippet: "go here"
           ),
 
-          icon: BitmapDescriptor.defaultMarker,
+          icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose),
+//          icon: BitmapDescriptor.fromAsset('images/test2.png',),
+///          to change opacity of the marker
+          alpha: .9,
           onDragEnd: ((value) {
-            print(value.latitude);
-            print(value.longitude);
-            sendRequest("NULL", context, value);
+            sendRequest("FROM _addMarker", context, _initialPosition,value);
           })
 
 
@@ -194,29 +273,45 @@ class AppState with ChangeNotifier{
 ///*adding to previous value as done in encoding */
     for (var i = 2; i < lList.length; i++) lList[i] += lList[i - 2];
 
-    print(lList.toString());
+//    print(lList.toString());
 
     return lList;
   }
 
   ///Send requests
-  void sendRequest(String intendedLocation, context, LatLng markerLatLng ) async {
+  void sendRequest(String intendedLocation, context,LatLng pickUpMarkerLatLng, LatLng destinationMarkerLatLng ) async {
     double latitude;
     double longitude;
 
-    if(intendedLocation == "NULL"){
-      latitude = markerLatLng.latitude;
-      longitude = markerLatLng.longitude;
+    /// if sendRequest method is called from addMarker method means if destination marker is dragged to new position
+    if(intendedLocation == "FROM _addMarker"){
+      latitude = destinationMarkerLatLng.latitude;
+      longitude = destinationMarkerLatLng.longitude;
+      List<Placemark> placemark = await Geolocator ( )
+          .placemarkFromCoordinates ( latitude, longitude );
+      destinationController.text = placemark[0].name;
+      notifyListeners();
+    }
+    else if( intendedLocation == "From Pickup Marker"){
+      _initialPosition = pickUpMarkerLatLng;
+      latitude = destination.latitude;
+      longitude = destination.longitude;
+    }
+    /// if sendRequest is called from getUser location => means user searches pickup location
+    ///  and already searched destination
+    else if (intendedLocation == "From _getUserLocation"){
+      /// because destination is alread searched by user so we have destination value
+      latitude = destination.latitude;
+      longitude = destination.longitude;
     }
     else {
-      List<Placemark> placemark = await Geolocator ( ).placemarkFromAddress (
-          intendedLocation );
+      List<Placemark> placemark = await Geolocator ( ).placemarkFromAddress ( intendedLocation );
       latitude = placemark[0].position.latitude;
       longitude = placemark[0].position.longitude;
     }
 
 
-    LatLng destination = LatLng(latitude, longitude);
+     destination = LatLng(latitude, longitude);
     _addMarker(destination, intendedLocation, context);
     String route = await _googleMapsServices.getRouteCoordinates(_initialPosition, destination);
 
@@ -283,6 +378,10 @@ class AppState with ChangeNotifier{
         ),
       ),
     );
+
+
+
+
 //    _settingModalBottomSheet(context);
     notifyListeners();
   }

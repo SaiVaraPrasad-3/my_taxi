@@ -76,6 +76,7 @@ class _DrawerBuilderState extends State<DrawerBuilder> {
 
     return Drawer(
 
+
 //        child: FutureBuilder(
 //          future: dbData.getUserDetails(),
 //          builder: (BuildContext context, AsyncSnapshot snapshot){
