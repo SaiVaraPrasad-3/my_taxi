@@ -19,13 +19,14 @@ class _LoginPageState extends State<LoginPage> {
 
   bool _isLoading = false;
   Dio dio = new Dio();
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();
 
   @override
   Widget build(BuildContext context) {
     SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle.light.copyWith(statusBarColor: Colors.transparent));
 
     return Scaffold(
+      key: _scaffoldKey,
 //      resizeToAvoidBottomInset: false,
       body: SingleChildScrollView(
         child: Container(
@@ -68,35 +69,52 @@ class _LoginPageState extends State<LoginPage> {
     };
 
     debugPrint(data.toString());
-    var jsonResponse = null;
+    try {
+      var jsonResponse = null;
 //    var response = await http.post("${_localhost()}/taxi/user/login", body: data);
-    Response response = await dio.post("${localhost()}/taxi/user/login",data: data);
+      Response response = await dio.post ("${localhost ()}/taxi/user/login", data: data );
 //    print(response.data);
 //    print(response.statusCode);
-    if(response.statusCode == 200) {
+      if (response.statusCode == 200) {
 //      jsonResponse = json.decode(response.data);
-      print("============================");
-      print(response.data);
-      print(response.data['token']);
-      if(response.data != null) {
-        setState(() {
-          _isLoading = false;
-        });
-        sharedPreferences.setString(
+        print (
+            "============================" );
+        print (
+            response.data );
+        print (
+            response.data['token'] );
+        if (response.data != null) {
+          setState (
+                  ( ) {
+                _isLoading = false;
+              } );
+          sharedPreferences.setString (
             "token", response.data['token'],
-        );
-        sharedPreferences.setInt(
-          "id", response.data['id'],
-        );
-        Navigator.of(context).pop();
-        Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (BuildContext context) => MyHomePage(title: "My Taxi",)), (Route<dynamic> route) => false);
+          );
+          sharedPreferences.setInt (
+            "id", response.data['id'],
+          );
+          Navigator.of (
+              context ).pop (
+          );
+          Navigator.of (
+              context ).pushAndRemoveUntil (
+              MaterialPageRoute (
+                  builder: ( BuildContext context ) =>
+                      MyHomePage (
+                        title: "My Taxi", ) ), (
+              Route<dynamic> route ) => false );
+        }
       }
-    }
-    else {
-      setState(() {
-        _isLoading = false;
-      });
-      print(response.data);
+
+    }on DioError catch(error) {
+      setState (
+              ( ) {
+            _isLoading = true;
+          } );
+      final snackBar = SnackBar(content: Text(error.response.data),
+        duration: const Duration(seconds: 5),);
+      _scaffoldKey.currentState.showSnackBar(snackBar);
     }
   }
 

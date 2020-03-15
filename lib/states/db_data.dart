@@ -29,19 +29,21 @@ class DatabaseData {
 
 
   /// Make http request to the server and fetch logged in user history of riders;
-  Future<List> historyOfRides () async {
+  Future<dynamic> historyOfRides () async {
     SharedPreferences sharedPreferences = await SharedPreferences.getInstance();
     print("==================================================++++============================");
     var id = sharedPreferences.getInt("id");
     print(id);
     print(sharedPreferences.getString("token"));
     http.Response response = await http.get("${localhost()}/taxi/rides/$id");
-    var jsonData = json.decode(response.body);
-    List user = [];
-    user.add(jsonData);
-    return user;
+    return json.decode(response.body);
   }
 
+  /// Make http request to get list of available cars and their drivers
+  Future<dynamic> makeGetRequestForTaxiAndDrivers() async {
+    http.Response response = await http.get("${localhost()}/taxi/details");
+    return json.decode(response.body);
+  }
 
 }
 

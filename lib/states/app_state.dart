@@ -1,39 +1,39 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:google_maps_webservice/places.dart';
+import 'package:my_taxi/database_interaction/send_ride_request.dart';
 import 'package:my_taxi/requests/google_maps_requests.dart';
+import 'package:my_taxi/screens/confirm_booking_screen.dart';
 import 'package:my_taxi/utils/core.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../utils/credentials.dart';
 import 'package:http/http.dart' as http;
 import '../utils/core.dart' as utils;
-import 'package:flutter_icons/flutter_icons.dart';
 import 'db_data.dart';
+import '../maps/maps.dart';
 
 
 class AppState with ChangeNotifier{
 
-  DatabaseData dbData = DatabaseData();
-
+  DatabaseData _dbData = DatabaseData();
+  RideRequest _rideRequest = RideRequest();
 
   static LatLng _initialPosition;
-  static LatLng destination;
+  static LatLng _destination;
   LatLng _lastPosition = _initialPosition;
   bool locationServiceActive = true;
   final Set<Marker> _markers = {};
-  //the lines that draw from one point to another
+  ///the lines that draw from one point to another
   final Set<Polyline> _polyLines = {};
   GoogleMapController _mapController;
   GoogleMapsServices _googleMapsServices = GoogleMapsServices();
   TextEditingController locationController = TextEditingController();
   TextEditingController destinationController = TextEditingController();
-  //static const _initialPosition = LatLng(12.97, 77.58);
+  ///static const _initialPosition = LatLng(12.97, 77.58);
   MapType _currentMapType = MapType.normal;
   MapType get currentMapType => _currentMapType;
   LatLng get initialPosition => _initialPosition;
@@ -42,30 +42,34 @@ class AppState with ChangeNotifier{
   GoogleMapController get mapController => _mapController;
   Set<Marker> get markers => _markers;
   Set<Polyline> get polyLines => _polyLines;
-  get confirmBooking => _confirmBooking;
+//  get confirmBooking => _confirmBooking;
   get onMapTypeButtonPressed => _onMapTypeButtonPressed;
   get getUserLocation => _getUserLocation;
-  Map googleDistanceMatrixData;
+  MapClass googleDistanceMatrixData;
+  get destination => _destination;
 
-  var distance;
+  var _distance;
+  List _locationPrice ;
+  var _price;
+  var _timeBetweenAddresses;
+  var _timeValue;
+  List _availableCarDriverDetails;
 
-
-  List locationPrice ;
-  var price;
-  var timeBetweenAddresses;
-  var timeValue;
-  List availableCarDriverDetails;
+  /// to check if rider still in ride or finished
+  bool _pendingRide = false;
 
 
   /// we will store the complete details of the  selected car and it's owner details in this variable with owner name and contact number
   /// it data will be driven from availableCarDriverDetails variable
-  var selectedTaxiCompleteDetails;
-  var carType = "";
-  var driverName = "";
-  var driverLastName = "";
-  var taxiNumberPlate = "";
-  var driverContactNumber;
-  var selectedTaxiPrice;
+  var _selectedTaxiCompleteDetails;
+  var _carType = "";
+  var _driverName = "";
+  var _driverLastName = "";
+  var _taxiNumberPlate = "";
+  var _driverContactNumber;
+  var _selectedTaxiPrice;
+
+  var globalContext;
 
   /*
   *real time location update on google map,
@@ -73,11 +77,12 @@ class AppState with ChangeNotifier{
   * https://medium.com/flutter-community/implement-real-time-location-updates-on-google-maps-in-flutter-235c8a09173e
   * */
 
-
   AppState(){
     ///he in loading of app we just pass empty values
     /// because in loading stage the the parameters of _getUserLocation won't be needed
-    _getUserLocation("From AppState()",'');
+    ///
+    /// context is need for this method call
+    _getUserLocation("From AppState()");
     _loadingInitialPosition();
   }
 
@@ -88,7 +93,7 @@ class AppState with ChangeNotifier{
     Prediction p = await PlacesAutocomplete.show(
     context: context,
 
-    apiKey: "AIzaSyDAtArPLH5n0-F1cgXnhomLZXA7Rbes0AY",
+    apiKey: apiKey,
     mode: Mode.overlay, // Mode.fullscreen
     language: "en",
     // location: ,
@@ -102,7 +107,7 @@ class AppState with ChangeNotifier{
 
 
 /// ! TO GET THE USERS LOCATION
-  void _getUserLocation(String pickupLocationSearched, context) async{
+  void _getUserLocation(String pickupLocationSearched) async{
     List<Placemark> placemark;
     String error;
     /// From AppState means to decide the behavior of the getUserLocation method based on user current location or searched pickup location
@@ -112,16 +117,16 @@ class AppState with ChangeNotifier{
         double latitude = placemark[0].position.latitude;
         double longitude = placemark[0].position.longitude;
         _initialPosition = LatLng(latitude, longitude);
-        _addPickupMarker(_initialPosition, pickupLocationSearched, context);
-
+        _addPickupMarker(_initialPosition, pickupLocationSearched);
         /// if the user has not searched destination the we won't send request if destination is searched then request will be sent
         /// user will have to search for destination else if already searched then
         /// based on new initial position and previous searched destination we send request
-        if(destination != null)
+        if(_destination != null)
           /// 0.0 LatLng because when we call sendRequest method from here then LatLng won't we needed only we change initial value
           /// and send request to the already searched destination
-         sendRequest("From _getUserLocation", context, _initialPosition,LatLng(0.0,0.0));
+         sendRequest("From _getUserLocation", _initialPosition,LatLng(0.0,0.0));
         error = null;
+        notifyListeners();
       }
       on Exception catch (e) {
         if(e.toString() == 'PERMISSION_DENIED') {
@@ -133,14 +138,15 @@ class AppState with ChangeNotifier{
       }
 
 
-    }else {
+    }
+    else {
       Position position = await Geolocator ( )
           .getCurrentPosition ( desiredAccuracy: LocationAccuracy.best );
 
       placemark = await Geolocator ( )
           .placemarkFromCoordinates ( position.latitude, position.longitude );
       _initialPosition = LatLng ( position.latitude, position.longitude );
-      _addPickupMarker(_initialPosition, locationController.text.toString(),context);
+      _addPickupMarker(_initialPosition, locationController.text.toString());
       locationController.text = placemark[0].name;
       notifyListeners();
     }
@@ -153,23 +159,23 @@ class AppState with ChangeNotifier{
    /// remove all previous routes
       _polyLines.clear();
       _polyLines.add(Polyline(polylineId: PolylineId(_lastPosition.toString()),
-        width: 10,
+        width: 8,
         points: _convertToLanLng(_decodePoly(encodedPoly)),
-        color: Colors.blue,));
+        color: currentMapType == MapType.normal ? Colors.blueGrey : Colors.blueAccent,));
       notifyListeners();
   }
 
 
 
   /// Add a marker on the map for pick up address
-  void _addPickupMarker(LatLng location, String address, context) {
+  void _addPickupMarker(LatLng location, String address) {
     ///clear all previous markers
     _markers.remove(MarkerId("Pick Up"));
     _markers.add(Marker(markerId: MarkerId("Pick Up"),
         draggable: true,
         position: location,
         infoWindow: InfoWindow(
-            title: address,
+            title: "Starting Address",
             snippet: "Pick Up"
         ),
 
@@ -181,35 +187,25 @@ class AppState with ChangeNotifier{
           /// if user drags marker without searching destination the on drag we only update the pickup location
           _initialPosition = value;
           /// if user already searched the destination position the we request new route on pickup marker dragged
-          if(destination != null){
-            sendRequest("From Pickup Marker", context, _initialPosition, destination);
+          if(_destination != null){
+            sendRequest("From Pickup Marker", _initialPosition, _destination);
           }
-          
+
         })
     ));
     notifyListeners();
   }
 
 
-
-
-
-
-
-
-
-
-
-
   /// Add a marker on the map for destination address
-  void _addMarker(LatLng location, String address, context) {
+  void _addMarker(LatLng location, String address) {
     ///clear all previous markers
       _markers.remove(MarkerId("Destination"));
       _markers.add(Marker(markerId: MarkerId("Destination"),
           draggable: true,
           position: location,
           infoWindow: InfoWindow(
-              title: address,
+              title: "Destination",
               snippet: "go here"
           ),
 
@@ -218,7 +214,7 @@ class AppState with ChangeNotifier{
 ///          to change opacity of the marker
           alpha: .9,
           onDragEnd: ((value) {
-            sendRequest("FROM _addMarker", context, _initialPosition,value);
+            sendRequest("FROM _addMarker", _initialPosition,value);
           })
 
 
@@ -279,7 +275,11 @@ class AppState with ChangeNotifier{
   }
 
   ///Send requests
-  void sendRequest(String intendedLocation, context,LatLng pickUpMarkerLatLng, LatLng destinationMarkerLatLng ) async {
+  void sendRequest(String intendedLocation, LatLng pickUpMarkerLatLng, LatLng destinationMarkerLatLng ) async {
+    /// create a global context so passing context wont be needed in between methods
+    print("testing gloabl context;_________________________");
+    print(globalContext);
+
     double latitude;
     double longitude;
 
@@ -294,45 +294,54 @@ class AppState with ChangeNotifier{
     }
     else if( intendedLocation == "From Pickup Marker"){
       _initialPosition = pickUpMarkerLatLng;
-      latitude = destination.latitude;
-      longitude = destination.longitude;
+      latitude = _destination.latitude;
+      longitude = _destination.longitude;
     }
     /// if sendRequest is called from getUser location => means user searches pickup location
     ///  and already searched destination
     else if (intendedLocation == "From _getUserLocation"){
       /// because destination is alread searched by user so we have destination value
-      latitude = destination.latitude;
-      longitude = destination.longitude;
+      latitude = _destination.latitude;
+      longitude = _destination.longitude;
     }
     else {
-      List<Placemark> placemark = await Geolocator ( ).placemarkFromAddress ( intendedLocation );
-      latitude = placemark[0].position.latitude;
-      longitude = placemark[0].position.longitude;
+      try{
+
+        List<Placemark> placemark = await Geolocator().placemarkFromAddress ( intendedLocation );
+        latitude = placemark[0].position.latitude;
+        longitude = placemark[0].position.longitude;
+      } on Exception catch (e) {
+        /// if(e != null) sendRequest(intendedLocation, context, pickUpMarkerLatLng, destinationMarkerLatLng);
+        print("Error caught");
+        print(e);
+      }
+
+
     }
 
 
-     destination = LatLng(latitude, longitude);
-    _addMarker(destination, intendedLocation, context);
-    String route = await _googleMapsServices.getRouteCoordinates(_initialPosition, destination);
+    _destination = LatLng(latitude, longitude);
+    _addMarker(_destination, intendedLocation);
+    String route = await _googleMapsServices.getRouteCoordinates(_initialPosition, _destination);
 
 
 
     /// get distance between two locations
-    distance = await _calculateDistance(_initialPosition, destination);
+    _distance = await _calculateDistance(_initialPosition, _destination);
 
     /// get duration between initial position and destination from google distance matrix api
-    timeBetweenAddresses = await _calculateTimeBetweenAddresses(_initialPosition, destination);
-    timeValue = timeBetweenAddresses['rows'][0]['elements'][0]['duration']['text'];
+    _timeBetweenAddresses = await _calculateTimeBetweenAddresses(_initialPosition, _destination);
+    _timeValue = _timeBetweenAddresses['rows'][0]['elements'][0]['duration']['text'];
 
 
     ///   get prices here
-    locationPrice = await dbData.makeGetRequestForPrices();
+    _locationPrice = await _dbData.makeGetRequestForPrices();
     ///Local price (Goa rate) with rounding off the values
-    price = (locationPrice[0]['price_per_km'] * distance).toStringAsFixed(0);
-    selectedTaxiPrice = price;
+    _price = (_locationPrice[0]['price_per_km'] * _distance).toStringAsFixed(0);
+    _selectedTaxiPrice = _price;
 
     ///   get list of available cars and their drivers
-    availableCarDriverDetails = await _makeGetRequestForTaxiAndDrivers();
+    _availableCarDriverDetails = await _dbData.makeGetRequestForTaxiAndDrivers();
 
 
    /* for debugging purpose
@@ -349,40 +358,38 @@ class AppState with ChangeNotifier{
 
     /// to select default car if customer doesn't select any car type
     /// default selected car will be first car from the list of cars available
-    selectedTaxiCompleteDetails = availableCarDriverDetails[0];
-    carType = selectedTaxiCompleteDetails["CarType"];
-    driverName = selectedTaxiCompleteDetails["DriverName"];
-    driverLastName = selectedTaxiCompleteDetails["DriverLastName"];
-    taxiNumberPlate = selectedTaxiCompleteDetails["NumberPlate"];
-    driverContactNumber = selectedTaxiCompleteDetails["PhoneNumber"];
+    _selectedTaxiCompleteDetails = _availableCarDriverDetails[0];
+    _carType = _selectedTaxiCompleteDetails["CarType"];
+    _driverName = _selectedTaxiCompleteDetails["DriverName"];
+    _driverLastName = _selectedTaxiCompleteDetails["DriverLastName"];
+    _taxiNumberPlate = _selectedTaxiCompleteDetails["NumberPlate"];
+    _driverContactNumber = _selectedTaxiCompleteDetails["PhoneNumber"];
 
 
 
     print("===================================================================");
-    print("Distance inside sendRequest method $distance");
-    _confirmBooking(context);
+    print(globalContext);
+    print("Distance inside sendRequest method $_distance");
+    confirmBooking();
 
-
-//      //Send initial and distination poisition from here to driver app (Send the rout to the driver app)
-    //write route inside the map, actually add polyLines on the map
+   ////Send initial and destination position from here to driver app (Send the rout to the driver app)
+   ///write route inside the map, actually add polyLines on the map
     createRoute(route);
 
     /// Zoom camera position to the destination address
     mapController.animateCamera(
       CameraUpdate.newCameraPosition(
         CameraPosition(
-          target: destination,
-          tilt: 50.0,
+          target: _destination,
+          tilt: 40.0,
           bearing: 20.0,
-          zoom: 16.0,
+          zoom: 13.0,
         ),
       ),
     );
 
-
-
-
-//    _settingModalBottomSheet(context);
+//    _settingModalBottomSheet();
+    _pendingRide = false;
     notifyListeners();
   }
 
@@ -401,7 +408,7 @@ class AppState with ChangeNotifier{
   //  LOADING INITIAL POSITION
 
   void _loadingInitialPosition()async{
-    await Future.delayed(Duration(seconds: 5)).then((v) {
+    await Future.delayed(Duration(seconds: 7)).then((v) {
       if(_initialPosition == null){
         locationServiceActive = false;
         notifyListeners();
@@ -409,7 +416,7 @@ class AppState with ChangeNotifier{
     });
   }
 
-  //Change Map mode normal satellite
+  ///Change Map mode normal & satellite
   void _onMapTypeButtonPressed() {
     _currentMapType = _currentMapType == MapType.normal
         ? MapType.hybrid
@@ -418,7 +425,7 @@ class AppState with ChangeNotifier{
   }
 
 
-  //Calculate distance between initial position and destination
+  ///Calculate distance between initial position and destination
   Future<double> _calculateDistance(LatLng initialPosition, LatLng destination) async{
     double distanceInMeters = await Geolocator()
         //.distanceBetween(52.2165157, 6.9437819, 52.3546274, 4.8285838);
@@ -458,11 +465,11 @@ class AppState with ChangeNotifier{
    }
 
 /*
-//This method for future use 
+//This method for future use
 //bottom sheet will pop up to change map modes
-  void _settingModalBottomSheet(context){
+  void _settingModalBottomSheet(){
     showModalBottomSheet(
-      context: context,
+      context: globalContext,
       builder: (BuildContext bc){
           return Container(
             child: new Wrap(
@@ -480,7 +487,7 @@ class AppState with ChangeNotifier{
                     ),
                     IconButton(
                       icon: Icon(Icons.close),
-                      onPressed: ()=>Navigator.pop(context),
+                      onPressed: ()=>Navigator.pop(globalContext),
                     )
                   ],
                 ),
@@ -493,7 +500,7 @@ class AppState with ChangeNotifier{
                         child: Icon(Icons.map),
                         onPressed: (){
                           _currentMapType = MapType.normal;
-                          Navigator.pop(context);
+                          Navigator.pop(globalContext);
                           },
                     ),
                      ),
@@ -524,10 +531,11 @@ class AppState with ChangeNotifier{
 */
 
 //Bottom sheet to confirm booking, select car type and use promo codes
- void _confirmBooking(BuildContext context){
-
-   showModalBottomSheet(
-       context: context,
+ void confirmBooking()
+ {
+   showBottomSheet(
+//     backgroundColor: Colors.grey,
+       context: globalContext,
        builder: (BuildContext bc){
            return Container(
              child: new Wrap(
@@ -541,7 +549,7 @@ class AppState with ChangeNotifier{
                         leading: CircleAvatar(
                           child: Icon(Icons.directions_car),
                         ),
-                        onTap: () => _displayAvailableTaxis(context),
+                        onTap: () => _displayAvailableTaxis(),
                         //select car type
                         title: Text("Select Car Type"),
                       ),
@@ -549,12 +557,12 @@ class AppState with ChangeNotifier{
                      IconButton(
                        icon: Icon(Icons.more_horiz),
                        //Enter hint of place here
-                       onPressed: ()=>Navigator.pop(context),
+                       onPressed: ()=>Navigator.pop(globalContext),
                      ),
                      IconButton(
                        icon: Icon(Icons.confirmation_number),
                        //Enter promotion code here
-                       onPressed: ()=>Navigator.pop(context),
+                       onPressed: ()=>Navigator.pop(globalContext),
                      )
                    ],
                  ),
@@ -562,20 +570,20 @@ class AppState with ChangeNotifier{
                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                    children: <Widget>[
                      Column( children: <Widget>[
-                       Text("Distance", style: TextStyle(color: Colors.grey),),
-                       Text("$distance KM", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("Distance", style: TextStyle(color: Colors.white),),
+                       Text("$_distance KM", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                      VerticalDivider(),
                      Column( children: <Widget>[
-                       Text("Time", style: TextStyle(color: Colors.grey),),
-                       Text("$timeValue", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("Time", style: TextStyle(color: Colors.white),),
+                       Text("$_timeValue", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                      VerticalDivider(),
                      Column( children: <Widget>[
-                       Text("Price", style: TextStyle(color: Colors.grey),),
-                       Text("$selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("Price", style: TextStyle(color: Colors.white),),
+                       Text("$_selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                    ],
@@ -589,9 +597,9 @@ class AppState with ChangeNotifier{
                    child: RaisedButton(
                      color: Colors.yellow[700],
                      onPressed: () {
-                       Navigator.of(context).pop();
-                       _confirmDriver(context);
-                       // Navigator.pop(context);
+                       Navigator.of(globalContext).pop();
+                       _confirmDriver();
+                       // Navigator.pop(globalContext);
                         },
                      child: Text("Book now", style: TextStyle(fontWeight: FontWeight.bold,color: Colors.white),),
                    ),
@@ -610,9 +618,10 @@ class AppState with ChangeNotifier{
  }
 
  //Bottom sheet to confirm Driver, call or
- void _confirmDriver(BuildContext context){
-   showModalBottomSheet(
-       context: context,
+ void _confirmDriver(){
+   showBottomSheet(
+//     backgroundColor: Colors.yellow.shade50,
+       context: globalContext,
        builder: (BuildContext bc){
            return Container(
              child: new Wrap(
@@ -631,12 +640,12 @@ class AppState with ChangeNotifier{
                                 image: new DecorationImage(
                                     fit: BoxFit.fill,
                                     image: new NetworkImage(
-                                        utils.profileTestImage)
+                                        utils.driverTestImage)
                                 )
                             )),
 //                        title: Text("Driver name here"),
-                        title: Text("$driverName $driverLastName"),
-                        subtitle: Text("$carType\n$taxiNumberPlate"),
+                        title: Text("$_driverName $_driverLastName"),
+                        subtitle: Text("$_carType\n$_taxiNumberPlate"),
 //                        subtitle: Text("Car Type here\nNumber plate"),
                         isThreeLine: true,
                       ),
@@ -644,7 +653,7 @@ class AppState with ChangeNotifier{
                      IconButton(
                        icon: Icon(Icons.message),
                        //chat with driver
-                       onPressed: ()=>Navigator.of(context).pop(),
+                       onPressed: ()=>Navigator.of(globalContext).pop(),
                      ),
                      IconButton(
                        icon: Icon(Icons.call),
@@ -658,19 +667,19 @@ class AppState with ChangeNotifier{
                    children: <Widget>[
                      Column( children: <Widget>[
                        Text("Distance", style: TextStyle(color: Colors.grey),),
-                       Text("$distance KM", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("$_distance KM", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                      VerticalDivider(),
                      Column( children: <Widget>[
                        Text("Time", style: TextStyle(color: Colors.grey),),
-                       Text("$timeValue", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("$_timeValue", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                      VerticalDivider(),
                      Column( children: <Widget>[
                        Text("Price", style: TextStyle(color: Colors.grey),),
-                       Text("$selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
+                       Text("$_selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                    ],
@@ -686,9 +695,15 @@ class AppState with ChangeNotifier{
                  ButtonTheme(
                    minWidth: 200,
                    height: 50.0,
-                   child: RaisedButton(
+                   child: _pendingRide == true ? CircularProgressIndicator() : RaisedButton(
                      color: Colors.yellow[700],
-                     onPressed: () {},
+                     onPressed: () {
+                       /// send request to Driver app
+                       _pendingRide = true;
+                       notifyListeners();
+                       print(_pendingRide);
+                       _rideRequest.sendRideRequest(_initialPosition.latitude, _initialPosition.longitude, _destination.latitude, _destination.longitude);
+                     },
                      child: Text("Confirm", style: TextStyle(fontWeight: FontWeight.bold,color: Colors.white),),
                    ),
                  ),
@@ -705,76 +720,68 @@ class AppState with ChangeNotifier{
      notifyListeners();
  }
 
-  /// Make http request to get list of available cars and their drivers
-  Future<dynamic> _makeGetRequestForTaxiAndDrivers() async {
-    http.Response response = await http.get("${localhost()}/taxi/details");
-    return json.decode(response.body);
-  }
-
-
-
-
-  /// Make http request to get list of cars available;
-  void _displayAvailableTaxis(BuildContext context) {
+  /// Make http request to get list of cars available
+  void _displayAvailableTaxis() {
     var carPictureURL;
-    selectedTaxiPrice = int.parse(price);
+    _selectedTaxiPrice = int.parse(_price);
 
     showModalBottomSheet(
-      backgroundColor: Colors.yellow.shade100,
-      context: context,
+      backgroundColor: Colors.yellow.shade50,
+      context: globalContext,
       builder: (BuildContext bc)
     {
       return ListView.builder(
-          itemCount: availableCarDriverDetails.length,
+          itemCount: _availableCarDriverDetails.length,
           itemBuilder: (BuildContext context, int index){
-            if(availableCarDriverDetails[index]["CarType"] == "flash") {
+            if(_availableCarDriverDetails[index]["CarType"] == "flash") {
               carPictureURL = utils.flashTypeUrl;
-              selectedTaxiPrice = int.parse(price) + 50;
+              _selectedTaxiPrice = int.parse(_price) + 50;
             }
-            else if (availableCarDriverDetails[index]["CarType"] == "van"){
+            else if (_availableCarDriverDetails[index]["CarType"] == "van"){
               carPictureURL = utils.vanTypeUrl;
-              selectedTaxiPrice = int.parse(price) + 100 ;
+              _selectedTaxiPrice = int.parse(_price) + 100 ;
             }
             else{
 
                    carPictureURL = utils.sedanTypeUrl;
-                   selectedTaxiPrice = int.parse(price);
+                   _selectedTaxiPrice = int.parse(_price);
             }
-            return Container(
-              height: 80,
-              child: Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15.0),
-                ),
-                color: Colors.white,
-                elevation: 10,
-                child: ListTile(
-                  leading:
-                  new Container(
-                      width: 100.0,
-                      height: 100.0,
-                      decoration: new BoxDecoration(
-                          shape: BoxShape.circle,
-                          image: new DecorationImage(
-                              fit: BoxFit.fill,
-                              image: new NetworkImage(
-                                  carPictureURL)
-                          )
-                      )),
-                  trailing: Text("₹ ${selectedTaxiPrice.toString()}", style: TextStyle(fontWeight: FontWeight.bold,fontSize: 20.0),),
-                  title: Text(availableCarDriverDetails[index]["CarType"],
-                    style: TextStyle(fontWeight: FontWeight.bold,fontSize: 22.0,color: Colors.black),),
-                  onTap: (){
-                    selectedTaxiCompleteDetails = availableCarDriverDetails[index];
-                    carType = selectedTaxiCompleteDetails["CarType"];
-                    driverName = selectedTaxiCompleteDetails["DriverName"];
-                    driverLastName = selectedTaxiCompleteDetails["DriverLastName"];
-                    taxiNumberPlate = selectedTaxiCompleteDetails["NumberPlate"];
-                    driverContactNumber = selectedTaxiCompleteDetails["PhoneNumber"];
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ),
+            return
+                Container(
+                  height: 80,
+                  child: Card(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(15.0),
+                    ),
+                    color: Colors.white,
+                    elevation: 10,
+                    child: ListTile(
+                      leading:
+                      new Container(
+                          width: 100.0,
+                          height: 100.0,
+                          decoration: new BoxDecoration(
+                              shape: BoxShape.circle,
+                              image: new DecorationImage(
+                                  fit: BoxFit.fill,
+                                  image: new NetworkImage(
+                                      carPictureURL)
+                              )
+                          )),
+                      trailing: Text("₹ ${_selectedTaxiPrice.toString()}", style: TextStyle(fontWeight: FontWeight.bold,fontSize: 20.0),),
+                      title: Text(_availableCarDriverDetails[index]["CarType"],
+                        style: TextStyle(fontWeight: FontWeight.bold,fontSize: 22.0,color: Colors.black),),
+                      onTap: (){
+                        _selectedTaxiCompleteDetails = _availableCarDriverDetails[index];
+                        _carType = _selectedTaxiCompleteDetails["CarType"];
+                        _driverName = _selectedTaxiCompleteDetails["DriverName"];
+                        _driverLastName = _selectedTaxiCompleteDetails["DriverLastName"];
+                        _taxiNumberPlate = _selectedTaxiCompleteDetails["NumberPlate"];
+                        _driverContactNumber = _selectedTaxiCompleteDetails["PhoneNumber"];
+                        Navigator.of(globalContext).pop();
+                      },
+                    ),
+                  ),
             );
           }
       );
@@ -784,12 +791,12 @@ class AppState with ChangeNotifier{
 
   _callDriver() async {
     // Android
-    var uri = 'tel:$driverContactNumber';
+    var uri = 'tel:$_driverContactNumber';
     if (await canLaunch(uri)) {
       await launch(uri);
     } else {
       // iOS
-      var uri = 'tel:$driverContactNumber';
+      var uri = 'tel:$_driverContactNumber';
       if (await canLaunch(uri)) {
         await launch(uri);
       } else {
@@ -799,8 +806,8 @@ class AppState with ChangeNotifier{
   }
 
 
-
-
 }
+
+
 
 

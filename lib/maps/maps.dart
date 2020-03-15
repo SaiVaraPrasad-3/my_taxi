@@ -1,33 +1,25 @@
 // This class should be added to new file Maps.dart file
 import 'package:flutter/cupertino.dart';
 import 'package:google_maps_webservice/places.dart';
+import 'package:my_taxi/screens/confirm_booking_screen.dart';
 import 'package:my_taxi/states/app_state.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import 'package:google_maps_webservice/places.dart';
-import 'package:my_taxi/authentication/login.dart';
-import 'package:my_taxi/states/app_state.dart';
-import 'package:my_taxi/states/db_data.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../utils/credentials.dart';
-import '../screens/drawer/drawer.dart';
-import 'package:flutter_icons/flutter_icons.dart';
 
-class Map extends StatefulWidget {
+class MapClass extends StatefulWidget {
+
   @override
-  _MapState createState() => _MapState();
+  _MapClassState createState() => _MapClassState();
 }
 
-class _MapState extends State<Map> {
-  GoogleMapsPlaces _places = GoogleMapsPlaces(apiKey: apiKey);
-
-
+class _MapClassState extends State<MapClass> {
   @override
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
+    appState.globalContext = context;
     const test = LatLng(12.97, 77.58);
     return SafeArea(
       child: appState.initialPosition == null ? Container
@@ -68,6 +60,7 @@ class _MapState extends State<Map> {
                 onMapCreated: appState.onCreated,
                 myLocationEnabled: true,
                 myLocationButtonEnabled: true,
+                zoomGesturesEnabled: true,
                 mapType: appState.currentMapType,
                 compassEnabled: true,
                 markers: appState.markers,
@@ -76,10 +69,10 @@ class _MapState extends State<Map> {
             ),
           ),
 
-          //this button will change modes of map
+          ///this button will change modes of map
           Positioned(
             right: 15.0,
-            top: 170.0,
+            top: 180.0,
             child: Container(
               height: 55,
               width: 55,
@@ -92,16 +85,16 @@ class _MapState extends State<Map> {
                 ),
             ),
           ),
-          //Pickup location search part
+          ///Pickup location search part
           Positioned(
-            top: 50.0,//50.0,
+            top: 60.0,//50.0,
             right: 15.0,
             left: 15.0,
             child: Container(
-              height: 50.0,
+              height: 45.0,
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(50.0),
+                borderRadius: BorderRadius.circular(5.0),
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
@@ -119,7 +112,7 @@ class _MapState extends State<Map> {
                 ///WE use this function to get searchable initial location
                 onSubmitted: (value) async{
                   /// we pass the searched values test will just have some value it won't be used we pass now just because
-                  appState.getUserLocation(value, context);
+                  appState.getUserLocation(value);
                 },
                 decoration: InputDecoration(
                   icon: Container(
@@ -138,16 +131,16 @@ class _MapState extends State<Map> {
               ),
             ),
           ),
-          //Destination position search
+          ///Destination position search
           Positioned(
-            top: 105.0,//105.0,
+            top: 110.0,//105.0,
             right: 15.0,
             left: 15.0,
             child: Container(
-              height: 50.0,
+              height: 45.0,
               width: double.infinity,
               decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(50.0),
+                borderRadius: BorderRadius.circular(5.0),
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
@@ -177,7 +170,7 @@ class _MapState extends State<Map> {
                 controller: appState.destinationController,
                 textInputAction: TextInputAction.go,
                 onSubmitted: (value) async{
-                  appState.sendRequest(value, context, test,test);
+                  appState.sendRequest(value, test,test);
 //                  appState.confirmBooking(context);
                 },
                 decoration: InputDecoration(
@@ -212,9 +205,4 @@ class _MapState extends State<Map> {
       ),
     );
   }
-/*
-  *      [12.12  ,23.4 ,43.44   ,343.43  ,342.45   ]
-  * index(0------1-----2--------3---------4        )
-  * */
-
 }

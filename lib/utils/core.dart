@@ -1,23 +1,28 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 
-const Color oranage = Colors.orange;
+const Color orange = Colors.orange;
 const Color white = Colors.white;
 const Color yellow = Colors.yellow;
 
-const sedanTypeUrl = "https://image.flaticon.com/icons/png/512/89/89131.png";
-const vanTypeUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcS0ubG-vBEkyfP-IhAZ4JdXRv5e-DmMmBMQbtlidgh-f_i2U_AH";
-const flashTypeUrl = "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQDfH7ONVQRDzO3syGxmODyJPF4IpRx32dDw171eefSf77w0gqv&s";
+const sedanTypeUrl = "http://192.168.43.85:7000/taxi/type/photo/sedan";
+const vanTypeUrl = "http://192.168.43.85:7000/taxi/type/photo/van";
+const flashTypeUrl = "http://192.168.43.85:7000/taxi/type/photo/flash";
 
 
-const profileTestImage = "https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcQKB2Yv9q0ZjdLY8gskjuT0WAy7adyQUuFub6vkP1vpR-DQ2KXb";
+const profileTestImage = "http://192.168.43.85:7000/taxi/profile";
+const driverTestImage = "http://192.168.43.85:7000/taxi/profile/driver";
 
 
-String localhost() {
-  if (Platform.isAndroid)
-    return 'http://10.0.2.2:7000';
-  else // for iOS simulator
-    return 'http://localhost:7000';
-}
+///"https://content-static.upwork.com/uploads/2014/10/02123010/profilephoto_goodcrop.jpg";
+/// ip version4 we use to be able to access through physical mobile device
+/// https://encrypted-tbn0.gstatic.com/images?q=tbn%3AANd9GcRu5trhUbXDbD2aQdTKFUERRxeYQH-98QIX59tug8132E-gz6Oo
+String localhost () => 'http://192.168.43.85:7000';
+
+// While working with local host we use the following code snippet
+//String localhost() {
+//  if (Platform.isAndroid)
+//    return 'http://10.0.2.2:7000';
+//  else // for iOS simulator
+//    return 'http://localhost:7000';
+//}
