@@ -89,19 +89,28 @@ class AppState with ChangeNotifier{
 
 
 /// ! To get location auto complete
-    Future<void> getLocationAutoComplete(BuildContext context) async {
-    Prediction p = await PlacesAutocomplete.show(
-    context: context,
+    Future<void> getPickUpLocationAutoComplete () async {
+      Prediction p = await PlacesAutocomplete.show(context: globalContext, apiKey: apiKey,
+          language: "en", components: [
+            Component(Component.country, "in")
+          ]
+      );
+      if(p == null) return;
+      locationController.text = p.description;
+     notifyListeners();
+    }
 
-    apiKey: apiKey,
-    mode: Mode.overlay, // Mode.fullscreen
-    language: "en",
-    // location: ,
-
-    components: [new Component(Component.country, "eg")]);
+  /// ! To get location auto complete
+  Future<void> getDestinationLocationAutoComplete () async {
+    Prediction p = await PlacesAutocomplete.show(context: globalContext, apiKey: apiKey,
+        language: "en", components: [
+          Component(Component.country, "in")
+        ]
+    );
+    if(p == null) return;
     destinationController.text = p.description;
     notifyListeners();
-    }
+  }
 
 
 

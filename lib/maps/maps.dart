@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_google_places/flutter_google_places.dart';
 import 'package:flutter_spinkit/flutter_spinkit.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'package:my_taxi/utils/credentials.dart';
 import 'package:provider/provider.dart';
 
 class MapClass extends StatefulWidget {
@@ -105,6 +106,7 @@ class _MapClassState extends State<MapClass> {
                 ],
               ),
               child: TextField(
+                onTap: appState.getPickUpLocationAutoComplete,
                 cursorColor: Colors.blueGrey,
                 //appState.
                 controller: appState.locationController,
@@ -153,20 +155,8 @@ class _MapClassState extends State<MapClass> {
               child: TextField(
 //                onTap: () => appState.getLocationAutoComplete(context),
                 //places autocomplete
-//                onTap: () async{
-//                  Prediction p = await PlacesAutocomplete.show(context: context, apiKey: apiKey,
-//                  language: "en", components: [
-//                    Component(Component.country, "in")
-//                      ]
-//                  );
-//                  if(p != null) return;
-//                  setState(() {
-//                    appState.destinationController.text = p.description;
-//
-//                  });
-//                },
-
-                cursorColor: Colors.blueGrey,
+               onTap: appState.getDestinationLocationAutoComplete,
+               cursorColor: Colors.blueGrey,
                 controller: appState.destinationController,
                 textInputAction: TextInputAction.go,
                 onSubmitted: (value) async{
