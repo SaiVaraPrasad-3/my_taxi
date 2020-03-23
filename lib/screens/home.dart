@@ -29,21 +29,21 @@ class _MyHomePageState extends State<MyHomePage> {
   DatabaseData dbData  = DatabaseData();
 
 
-  /// to check if the use is logged in
-  SharedPreferences sharedPreferences;
-  @override
-  void initState() {
-    super.initState();
-    checkLoginStatus();
-      }
-
-      /// this method will check if the user is logged in or not
-  checkLoginStatus() async {
-    sharedPreferences = await SharedPreferences.getInstance();
-    if(sharedPreferences.getString("token") == null) {
-      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (BuildContext context) => LoginPage()), (Route<dynamic> route) => false);
-    }
-  }
+//  /// to check if the use is logged in
+//  SharedPreferences sharedPreferences;
+//  @override
+//  void initState() {
+//    super.initState();
+//    checkLoginStatus();
+//      }
+//
+//      /// this method will check if the user is logged in or not
+//  checkLoginStatus() async {
+//    sharedPreferences = await SharedPreferences.getInstance();
+//    if(sharedPreferences.getString("token") == null) {
+//      Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (BuildContext context) => LoginPage()), (Route<dynamic> route) => false);
+//    }
+//  }
 
   /// to change icon of drawer
   final GlobalKey<ScaffoldState> _scaffoldKey = new GlobalKey<ScaffoldState>();

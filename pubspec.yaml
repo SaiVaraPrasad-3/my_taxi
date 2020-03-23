@@ -45,6 +45,7 @@ dependencies:
   flutter_icons: ^1.0.0+1
   url_launcher: ^5.4.1
   sliding_up_panel: ^1.0.0
+  toast: any
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,7 @@ flutter:
   assets:
     - assets/images/person.png
     - assets/images/test2.png
+    - assets/images/taxi.png
 
 
   # An image asset can refer to one or more resolution-specific "variants", see

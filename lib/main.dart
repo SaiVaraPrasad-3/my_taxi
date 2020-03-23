@@ -4,6 +4,7 @@ import 'package:my_taxi/authentication/signup.dart';
 import 'package:my_taxi/screens/auth_screen.dart';
 import 'package:my_taxi/screens/customer_care.dart';
 import 'package:my_taxi/screens/ride_history.dart';
+import 'package:my_taxi/screens/splash_screen.dart';
 import 'package:my_taxi/states/app_state.dart';
 import 'package:provider/provider.dart';
 import './screens/home.dart';
@@ -39,7 +40,7 @@ class MyApp extends StatelessWidget {
         primarySwatch: Colors.yellow,
       ),
 //      home: LoginPage(),
-       home: MyHomePage(title: _title),
+       home: SplashScreen(),
     );
   }
 }

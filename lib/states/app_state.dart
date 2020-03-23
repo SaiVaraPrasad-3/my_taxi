@@ -47,6 +47,7 @@ class AppState with ChangeNotifier{
   get getUserLocation => _getUserLocation;
   MapClass googleDistanceMatrixData;
   get destination => _destination;
+//  get chooseMapType => _chooseMapType;
 
   var _distance;
   List _locationPrice ;
@@ -379,7 +380,7 @@ class AppState with ChangeNotifier{
     print("===================================================================");
     print(globalContext);
     print("Distance inside sendRequest method $_distance");
-    confirmBooking();
+    _confirmBooking();
 
    ////Send initial and destination position from here to driver app (Send the rout to the driver app)
    ///write route inside the map, actually add polyLines on the map
@@ -457,15 +458,12 @@ class AppState with ChangeNotifier{
 
 /// to calculate time between two addresses using google distance matrix api
    Future<dynamic> _calculateTimeBetweenAddresses (LatLng initialPosition,LatLng destination) async{
-
     /*for debug purpose
      print("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@");
      print("${initialPosition.latitude},${initialPosition.longitude}");
      print("${initialPosition.latitude},${initialPosition.longitude}");
     */
     String apiUrl = "https://maps.googleapis.com/maps/api/distancematrix/json?units=imperial&origins=${initialPosition.latitude},${initialPosition.longitude}&destinations=${destination.latitude},${destination.longitude}&key=$apiKey";
-
-
      //     Response response=await dio.get(apiUrl);
      http.Response response = await http.get(apiUrl);
 //     print("%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%");
@@ -473,10 +471,11 @@ class AppState with ChangeNotifier{
       return json.decode(response.body);
    }
 
-/*
+
 //This method for future use
 //bottom sheet will pop up to change map modes
-  void _settingModalBottomSheet(){
+/*
+  void _chooseMapType () async {
     showModalBottomSheet(
       context: globalContext,
       builder: (BuildContext bc){
@@ -496,7 +495,10 @@ class AppState with ChangeNotifier{
                     ),
                     IconButton(
                       icon: Icon(Icons.close),
-                      onPressed: ()=>Navigator.pop(globalContext),
+                      onPressed: (){
+                        _currentMapType  = MapType.satellite;
+                        Navigator.of(globalContext).pop();
+                      },
                     )
                   ],
                 ),
@@ -539,19 +541,20 @@ class AppState with ChangeNotifier{
 }
 */
 
+
 //Bottom sheet to confirm booking, select car type and use promo codes
- void confirmBooking()
+ void _confirmBooking()
  {
    showBottomSheet(
 //     backgroundColor: Colors.grey,
        context: globalContext,
        builder: (BuildContext bc){
            return Container(
-             child: new Wrap(
+             child: Wrap(
              children: <Widget>[
                Column(children: <Widget>[
                  Row(
-                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                    children: <Widget>[
                     Expanded(
                       child: ListTile(
@@ -575,28 +578,30 @@ class AppState with ChangeNotifier{
                      )
                    ],
                  ),
+                 Divider(thickness: 2,),
                  Row(
                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                    children: <Widget>[
                      Column( children: <Widget>[
-                       Text("Distance", style: TextStyle(color: Colors.white),),
+                       Text("Distance", style: TextStyle(color: Colors.grey),),
                        Text("$_distance KM", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                      VerticalDivider(),
                      Column( children: <Widget>[
-                       Text("Time", style: TextStyle(color: Colors.white),),
+                       Text("Time", style: TextStyle(color: Colors.grey),),
                        Text("$_timeValue", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                      VerticalDivider(),
                      Column( children: <Widget>[
-                       Text("Price", style: TextStyle(color: Colors.white),),
+                       Text("Price", style: TextStyle(color: Colors.grey),),
                        Text("$_selectedTaxiPrice Rs", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
                    ],
                  ),
+                 Divider(thickness: 2,),
                  Container(
                    height: 15.0,
                  ),
@@ -640,37 +645,53 @@ class AppState with ChangeNotifier{
                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                    children: <Widget>[
                     Expanded(
-                      child: ListTile(
-                        leading: new Container(
-                            width: 100.0,
-                            height: 100.0,
-                            decoration: new BoxDecoration(
-                                shape: BoxShape.circle,
-                                image: new DecorationImage(
-                                    fit: BoxFit.fill,
-                                    image: new NetworkImage(
-                                        utils.driverTestImage)
-                                )
-                            )),
+                      child: SingleChildScrollView(
+                        child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: <Widget>[
+
+                               Container(
+                            margin: EdgeInsets.all(10.0),
+                              width: 70.0,
+                              height: 70.0,
+                              decoration: new BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  image: new DecorationImage(
+                                      fit: BoxFit.fill,
+                                      image: new NetworkImage(
+                                          utils.driverTestImage)
+                                  )
+                              )),
+
 //                        title: Text("Driver name here"),
-                        title: Text("$_driverName $_driverLastName"),
-                        subtitle: Text("$_carType\n$_taxiNumberPlate"),
-//                        subtitle: Text("Car Type here\nNumber plate"),
-                        isThreeLine: true,
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: <Widget>[
+                              Text("$_driverName $_driverLastName", style: TextStyle(fontWeight: FontWeight.bold,fontSize: 19.0),),
+                              Text("$_carType", style: TextStyle(fontSize: 17.0),),
+                              Text("$_taxiNumberPlate")
+                              //                        subtitle: Text("Car Type here\nNumber plate"),
+                              // isThreeLine: true,
+                            ],
+                          ),
+                           IconButton(
+                             icon: Icon(Icons.message),
+                             //chat with driver
+                             onPressed: ()=>Navigator.of(globalContext).pop(),
+                           ),
+                           IconButton(
+                             icon: Icon(Icons.call),
+                             //call the driver using inbuilt phone app
+                             onPressed: ()=>_callDriver(),
+                   )
+             ]
+                        ),
                       ),
                     ),
-                     IconButton(
-                       icon: Icon(Icons.message),
-                       //chat with driver
-                       onPressed: ()=>Navigator.of(globalContext).pop(),
-                     ),
-                     IconButton(
-                       icon: Icon(Icons.call),
-                       //call the driver using inbuilt phone app
-                       onPressed: ()=>_callDriver(),
-                     )
+
                    ],
                  ),
+                 Divider(thickness: 2,),
                  Row(
                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                    children: <Widget>[
@@ -679,7 +700,7 @@ class AppState with ChangeNotifier{
                        Text("$_distance KM", style: TextStyle(fontWeight: FontWeight.bold),)
                      ]
                      ),
-                     VerticalDivider(),
+                     VerticalDivider(thickness: 2,),
                      Column( children: <Widget>[
                        Text("Time", style: TextStyle(color: Colors.grey),),
                        Text("$_timeValue", style: TextStyle(fontWeight: FontWeight.bold),)
@@ -693,6 +714,7 @@ class AppState with ChangeNotifier{
                      ),
                    ],
                  ),
+                 Divider(thickness: 2,),
                  Container(
                    height: 15.0,
                  ),
@@ -707,7 +729,7 @@ class AppState with ChangeNotifier{
                    child: _pendingRide == true ? CircularProgressIndicator() : RaisedButton(
                      color: Colors.yellow[700],
                      onPressed: () {
-                       /// send request to Driver app
+                       /// send ride request to Driver app
                        _pendingRide = true;
                        notifyListeners();
                        print(_pendingRide);

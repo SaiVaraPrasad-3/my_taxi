@@ -5,6 +5,7 @@ import 'package:my_taxi/authentication/login.dart';
 import 'package:my_taxi/screens/confirm_booking_screen.dart';
 import 'package:my_taxi/screens/home.dart';
 import 'package:my_taxi/screens/customer_care.dart';
+import 'package:my_taxi/screens/splash_screen.dart';
 import 'package:my_taxi/states/db_data.dart';
 import 'package:my_taxi/utils/core.dart' as utils;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -84,7 +85,7 @@ class _DrawerBuilderState extends State<DrawerBuilder> {
               sharedPreferences.clear();
               sharedPreferences.commit();
               Navigator.of(context).pop();
-              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (BuildContext context) => LoginPage()), (Route<dynamic> route) => false);
+              Navigator.of(context).pushAndRemoveUntil(MaterialPageRoute(builder: (BuildContext context) => SplashScreen()), (Route<dynamic> route) => false);
             },
           ),
           ListTile(

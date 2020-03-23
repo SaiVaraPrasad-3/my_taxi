@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:my_taxi/utils/core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
+import 'package:toast/toast.dart';
 import 'loginUtils.dart';
 import 'package:provider/provider.dart';
 import '../screens/home.dart';
@@ -28,7 +29,7 @@ class _LoginPageState extends State<LoginPage> {
     return Scaffold(
       key: _scaffoldKey,
 //      resizeToAvoidBottomInset: false,
-      body: SingleChildScrollView(
+      body: _isLoading ? Center( child: CircularProgressIndicator()) : SingleChildScrollView(
         child: Container(
           child: Column(
             children: <Widget>[
@@ -112,9 +113,14 @@ class _LoginPageState extends State<LoginPage> {
               ( ) {
             _isLoading = true;
           } );
-      final snackBar = SnackBar(content: Text(error.response.data),
-        duration: const Duration(seconds: 5),);
-      _scaffoldKey.currentState.showSnackBar(snackBar);
+//      final snackBar = SnackBar(content: Text(error.response.data),
+//        duration: const Duration(seconds: 5),);
+//      _scaffoldKey.currentState.showSnackBar(snackBar);
+      Toast.show(error.response.data, context,
+          duration: Toast.LENGTH_LONG, gravity: Toast.BOTTOM);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 

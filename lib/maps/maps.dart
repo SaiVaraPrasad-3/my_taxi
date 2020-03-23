@@ -80,6 +80,7 @@ class _MapClassState extends State<MapClass> {
               child:
                 FloatingActionButton(
                     child: Icon(Icons.map),
+                    // TODO: use this button for testing card creation
                     onPressed: appState.onMapTypeButtonPressed,
                     backgroundColor:
                     appState.currentMapType == MapType.normal ? Colors.green[100] : Colors.white

@@ -7,6 +7,7 @@ import 'package:my_taxi/screens/home.dart';
 import 'package:my_taxi/utils/core.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:dio/dio.dart';
+import 'package:toast/toast.dart';
 import 'loginUtils.dart';
 
 
@@ -28,7 +29,7 @@ class _SignUpPageState extends State<SignUpPage> {
         statusBarColor: Colors.transparent));
     return Scaffold(
       resizeToAvoidBottomPadding: false,
-      body: SingleChildScrollView(
+      body: _isLoading ? Center( child: CircularProgressIndicator()) : SingleChildScrollView(
         child: Column(
           children: <Widget>[
             headerSection(),
@@ -97,16 +98,16 @@ class _SignUpPageState extends State<SignUpPage> {
               ( ) {
             _isLoading = true;
           } );
-      final snackBar = SnackBar(content: Text(error.response.data),
-        duration: const Duration(seconds: 5),);
-      _scaffoldKey.currentState.showSnackBar(snackBar);
+//      final snackBar = SnackBar(content: Text(error.response.data),
+//        duration: const Duration(seconds: 5),);
+//      _scaffoldKey.currentState.showSnackBar(snackBar);
+      Toast.show(error.response.data, context,
+          duration: Toast.LENGTH_LONG, gravity: Toast.BOTTOM);
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
-
-
-
-
-
 
   final TextEditingController phoneController = new TextEditingController();
   final TextEditingController passwordController = new TextEditingController();
